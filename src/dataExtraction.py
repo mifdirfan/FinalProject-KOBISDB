@@ -93,9 +93,101 @@ def insert_data(movie_info_df):
             print("connection closed")
 
 
+def normalized_table():
+    print("connecting to db...")
+
+    try:
+        connection = pymysql.connect(
+            host='localhost', 
+            user='root',
+            password='dongyang',
+            database='kobisdb',
+            charset='utf8mb4'
+        )
+
+        cursor = connection.cursor()
+
+        create_table_query = ["""
+            CREATE TABLE IF NOT EXISTS 영화(
+            Mid INT PRIMARY KEY, 
+            영화명 VARCHAR(255), 
+            영문명 VARCHAR(255), 
+            제작연도 INT, 
+            유형 VARCHAR(50), 
+            제작상태 VARCHAR(50),
+            제작사 VARCHAR(255)
+            )
+        """, 
+        """
+            CREATE TABLE IF NOT EXISTS 감독(
+            Did INT PRIMARY KEY, 
+            감독명 VARCHAR(255)
+            )
+        """, 
+        """
+            CREATE TABLE IF NOT EXISTS 장르(
+            Gid INT PRIMARY KEY, 
+            장르명 VARCHAR(100)
+            )
+        """,
+        """
+            CREATE TABLE IF NOT EXISTS 제작국가(
+            Cid INT PRIMARY KEY, 
+            제작국가 VARCHAR(100)
+            )
+        """, 
+        # junction table 
+        """
+            CREATE TABLE IF NOT EXISTS 영화_감독(
+            Mid INT, 
+            Did INT, 
+            PRIMARY KEY (Mid, Did), 
+            FOREIGN KEY (Mid) REFERENCES 영화(Mid), 
+            FOREIGN KEY (Did) REFERENCES 감독(Did)
+            )
+        """, 
+        """
+            CREATE TABLE IF NOT EXISTS 영화_장르(
+            Mid INT, 
+            Gid INT, 
+            PRIMARY KEY (Mid, Gid), 
+            FOREIGN KEY (Mid) REFERENCES 영화(Mid), 
+            FOREIGN KEY (Gid) REFERENCES 장르(Gid)
+            )
+        """, 
+        """
+            CREATE TABLE IF NOT EXISTS 영화_제작국가(
+            Mid INT, 
+            Cid INT, 
+            PRIMARY KEY (Mid, Cid), 
+            FOREIGN KEY (Mid) REFERENCES 영화(Mid), 
+            FOREIGN KEY (Cid) REFERENCES 제작국가(Cid)
+            )
+        """]
+
+        print("creating table...")
+        for query in create_table_query:
+            cursor.execute(query)
+
+        connection.commit()
+        print("table created")
+
+    except pymysql.MySQLError as e:
+        print(f"MySQL Error: {e}")
+    except Exception as e:
+        print(f"An error occurred: {e}")
+    finally: 
+        if 'connection' in locals() and connection.open:
+            connection.close()
+            print("connection closed")
+
+
+
+
 
 if __name__ == "__main__":
     EXCEL_FILE = 'FinalProject/data/영화정보 리스트_2026-06-08.xls'
 
-    merged_data = load_and_merge(EXCEL_FILE)
-    insert_data(merged_data)
+    # merged_data = load_and_merge(EXCEL_FILE)
+    # insert_data(merged_data)
+    normalized_table()
