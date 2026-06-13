@@ -10,6 +10,8 @@ def index():
     total_count = 0
     current_page = 1
     total_pages = 1
+    start_page = 1
+    end_page = 1
     
     years, genres, nations = database.get_filter_options()
     hangul_letters = ['ㄱ', 'ㄴ', 'ㄷ', 'ㄹ', 'ㅁ', 'ㅂ', 'ㅅ', 'ㅇ', 'ㅈ', 'ㅊ', 'ㅋ', 'ㅌ', 'ㅍ', 'ㅎ']
@@ -24,7 +26,6 @@ def index():
             'director': request.form.get('director_input', '').strip(),
             'year_from': request.form.get('year_from', ''),
             'year_to': request.form.get('year_to', ''),
-            'movie_types': request.form.getlist('movie_type'),
             'genres': request.form.getlist('genre_multi'),
             'nations': request.form.getlist('nation_multi'),
             'name_index': request.form.get('name_index', '')

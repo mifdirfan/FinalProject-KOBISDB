@@ -118,8 +118,8 @@
                 </tr>
                 {% for movie in movies %}
                 <tr>
-                    <td><a href="javascript:void(0);" onclick="openMovieDetails({{ movie['Mid'] }})" class="movie-link">{{ movie['영화명'] }}</a></td>
-                    <td><a href="javascript:void(0);" onclick="openMovieDetails({{ movie['Mid'] }})" class="movie-link">{{ movie['영문명'] or '-' }}</a></td>
+                    <td><a href="javascript:void(0);" data-mid="{{ movie['Mid'] }}" onclick="openMovieDetails(this.getAttribute('data-mid'))" class="movie-link">{{ movie['영화명'] }}</a></td>
+                    <td><a href="javascript:void(0);" data-mid="{{ movie['Mid'] }}" onclick="openMovieDetails(this.getAttribute('data-mid'))" class="movie-link">{{ movie['영문명'] or '-' }}</a></td>
                     <td>{{ movie['Mid'] }}</td>
                     <td>{{ movie['제작연도'] }}</td>
                     <td>{{ movie['국적'] or '-' }}</td>
@@ -147,6 +147,7 @@
                 {% if current_page < total_pages %}
                     <button data-page="{{ current_page + 1 }}" onclick="changePage(this.getAttribute('data-page'))">다음</button>
                 {% endif %}
+            </div>
 
         {% else %}
             <p>검색 결과가 없습니다.</p>
