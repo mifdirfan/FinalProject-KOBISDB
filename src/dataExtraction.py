@@ -175,6 +175,7 @@ def normalized_table():
 
         index_queries = [
             "CREATE INDEX idx_movie_name ON 영화(영화명)",
+            "CREATE INDEX idx_movie_name_en ON 영화(영문명)", 
             "CREATE INDEX idx_director_name ON 감독(감독명)", 
             "CREATE INDEX idx_production_year ON 영화(제작연도)"
         ]

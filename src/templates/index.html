@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>KOBIS Movie Search</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <h2>KOBIS 영화 검색</h2>
+    
+    <form method="POST" id="advanced-search-form">
+        
+        <div class="form-row">
+            <div class="input-group">
+                <label for="movie_title_input">영화명</label>
+                <input type="text" name="movie_title_input" id="movie_title_input" value="{{ search_query }}">
+            </div>
+            <div class="input-group">
+                <label for="director_input">감독명</label>
+                <input type="text" name="director_input" id="director_input">
+            </div>
+        </div>
+
+        <div class="form-row">
+            <div class="input-group">
+                <label>제작연도</label>
+                <div class="year-range">
+                    <select name="year_from" id="year_from">
+                        <option value="">시작 연도</option>
+                        {% for y in years %}
+                            <option value="{{ y['제작연도'] }}">{{ y['제작연도'] }}</option>
+                        {% endfor %}
+                    </select>
+                    <span> ~ </span>
+                    <select name="year_to" id="year_to">
+                        <option value="">종료 연도</option>
+                        {% for y in years %}
+                            <option value="{{ y['제작연도'] }}">{{ y['제작연도'] }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+        </div>
+<div style="text-align: center; margin: 10px 0 20px 0;">
+            <button type="button" id="toggle_advanced_btn" onclick="toggleAdvancedFilters()" style="background: none; border: none; color: #1a237e; font-weight: bold; cursor: pointer; text-decoration: underline;">
+                상세조건 열기 ▼
+            </button>
+        </div>
+
+        <div id="advanced_filters" style="display: none;">
+
+            <div class="form-row">
+                <div class="input-group">
+                    <label>장르별</label>
+                    <div class="custom-select" id="genre_custom_select">
+                        <div class="select-box" onclick="toggleMenu('genre_menu')">장르 선택 <span>▼</span></div>
+                        <div class="checkbox-menu hidden" id="genre_menu">
+                            {% for g in genres %}
+                                <label><input type="checkbox" name="genre_multi" value="{{ g['장르명'] }}"> {{ g['장르명'] }}</label>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+
+                <div class="input-group">
+                    <label>국적별</label>
+                    <div class="custom-select" id="nation_custom_select">
+                        <div class="select-box" onclick="toggleMenu('nation_menu')">국적 선택 <span>▼</span></div>
+                        <div class="checkbox-menu hidden" id="nation_menu">
+                            {% for n in nations %}
+                                <label><input type="checkbox" name="nation_multi" value="{{ n['제작국가'] }}"> {{ n['제작국가'] }}</label>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="input-group full-width">
+                    <label>영화명 인덱싱</label>
+                    <div class="index-buttons">
+                        {% for letter in hangul_letters %}
+                            <button type="button" class="idx-btn" onclick="setIndex('{{ letter }}')">{{ letter }}</button>
+                        {% endfor %}
+                        {% for letter in english_letters %}
+                            <button type="button" class="idx-btn" onclick="setIndex('{{ letter }}')">{{ letter }}</button>
+                        {% endfor %}
+                        <input type="hidden" name="name_index" id="name_index_input" value="">
+                    </div>
+                </div>
+            </div>
+            
+        </div> <input type="hidden" name="current_page" id="current_page_input" value="1">
+
+        <div class="form-actions">
+            <button type="submit" class="search-btn" onclick="resetPage()">검색</button>
+            <button type="button" class="reset-btn" onclick="resetSearchForm()">초기화</button>
+        </div>
+    </form>
+    
+    <hr>
+
+    {% if request.method == 'POST' %}
+        {% if movies %}
+            <p>검색 결과: 총 {{ total_count }}건 (페이지 {{ current_page }} / {{ total_pages }})</p>
+            <table border="1">
+                <tr>
+                    <th>영화명</th>
+                    <th>영화명(영문)</th>
+                    <th>영화코드</th>
+                    <th>제작연도</th>
+                    <th>제작국가</th>
+                    <th>유형</th>
+                    <th>장르</th>
+                    <th>제작상태</th>
+                    <th>감독</th>
+                    <th>제작사</th>
+                </tr>
+                {% for movie in movies %}
+                <tr>
+                    <td><a href="javascript:void(0);" onclick="openMovieDetails({{ movie['Mid'] }})" class="movie-link">{{ movie['영화명'] }}</a></td>
+                    <td><a href="javascript:void(0);" onclick="openMovieDetails({{ movie['Mid'] }})" class="movie-link">{{ movie['영문명'] or '-' }}</a></td>
+                    <td>{{ movie['Mid'] }}</td>
+                    <td>{{ movie['제작연도'] }}</td>
+                    <td>{{ movie['국적'] or '-' }}</td>
+                    <td>{{ movie['유형'] }}</td>
+                    <td>{{ movie['장르'] or '-' }}</td>
+                    <td>{{ movie['제작상태'] }}</td>
+                    <td>{{ movie['감독'] or '-' }}</td>
+                    <td>{{ movie['제작사'] or '-' }}</td>
+                </tr>
+                {% endfor %} </table> 
+            <div class="pagination" style="text-align: center; margin-top: 20px; display: flex; justify-content: center; gap: 5px;">
+                
+                {% if current_page > 1 %}
+                    <button data-page="{{ current_page - 1 }}" onclick="changePage(this.getAttribute('data-page'))">이전</button>
+                {% endif %}
+                
+                {% for p in range(start_page, end_page + 1) %}
+                    {% if p == current_page %}
+                        <button style="background-color: #1a237e; color: white; font-weight: bold; border: none;" disabled>{{ p }}</button>
+                    {% else %}
+                        <button data-page="{{ p }}" onclick="changePage(this.getAttribute('data-page'))">{{ p }}</button>
+                    {% endif %}
+                {% endfor %}
+                
+                {% if current_page < total_pages %}
+                    <button data-page="{{ current_page + 1 }}" onclick="changePage(this.getAttribute('data-page'))">다음</button>
+                {% endif %}
+
+        {% else %}
+            <p>검색 결과가 없습니다.</p>
+        {% endif %}
+    {% endif %}
+
+    <div id="movieModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal()">&times;</span>
+            <h3 id="modal_title">Movie Details</h3>
+            <table class="detail-table">
+                <tr><th>코드</th><td id="modal_code"></td></tr>
+                <tr><th>ISAN</th><td id="modal_isan">해당정보 없음</td></tr>
+                <tr><th>A.K.A.</th><td id="modal_aka">해당정보 없음</td></tr>
+                <tr><th>요약정보</th><td id="modal_summary"></td></tr>
+                <tr><th>등급분류</th><td id="modal_rating">해당정보 없음</td></tr>
+                <tr><th>개봉일</th><td id="modal_release_date">해당정보 없음</td></tr>
+                <tr><th>제작연도</th><td id="modal_year"></td></tr>
+                <tr><th>제작상태</th><td id="modal_status"></td></tr>
+                <tr><th>크랭크인/업</th><td id="modal_crank">해당정보 없음</td></tr>
+                <tr><th>촬영회차</th><td id="modal_shooting">해당정보 없음</td></tr>
+                <tr><th>상영타입</th><td id="modal_screen">해당정보 없음</td></tr>
+            </table>
+        </div>
+    </div>
+    
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>
