@@ -4,7 +4,6 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-
 def get_db_connection():
     return pymysql.connect(
         host=os.getenv('DB_HOST'),           
@@ -19,7 +18,6 @@ def search_movies_advanced(filters, page=1, per_page=100):
     connection = get_db_connection()
     try:
         with connection.cursor() as cursor:
-            # The base JOIN logic
             joins = """
                 FROM 영화 m
                 LEFT JOIN 영화_감독 md ON m.Mid = md.Mid
@@ -28,12 +26,13 @@ def search_movies_advanced(filters, page=1, per_page=100):
                 LEFT JOIN 장르 g ON mg.Gid = g.Gid
                 LEFT JOIN 영화_제작국가 mc ON m.Mid = mc.Mid
                 LEFT JOIN 제작국가 c ON mc.Cid = c.Cid
+                LEFT JOIN 영화_제작사 mco ON m.Mid = mco.Mid
+                LEFT JOIN 제작사 co ON mco.Pid = co.Pid
             """
             
             conditions = []
             params = []
 
-            # 1. Text Inputs
             if filters.get('title'):
                 conditions.append("(m.영화명 LIKE %s OR m.영문명 LIKE %s)")
                 params.extend(['%' + filters['title'] + '%', '%' + filters['title'] + '%'])
@@ -41,14 +40,12 @@ def search_movies_advanced(filters, page=1, per_page=100):
                 conditions.append("d.감독명 LIKE %s")
                 params.append('%' + filters['director'] + '%')
 
-            # 2. Year Range
             if filters.get('year_from'):
                 conditions.append("m.제작연도 >= %s")
                 params.append(filters['year_from'])
             if filters.get('year_to'):
                 conditions.append("m.제작연도 <= %s")
                 params.append(filters['year_to'])
-
 
             if filters.get('genres'):
                 placeholders = ', '.join(['%s'] * len(filters['genres']))
@@ -60,7 +57,6 @@ def search_movies_advanced(filters, page=1, per_page=100):
                 conditions.append(f"c.제작국가 IN ({placeholders})")
                 params.extend(filters['nations'])
 
-            # 4. Name Indexing
             name_idx = filters.get('name_index')
             if name_idx:
                 hangul_ranges = {
@@ -82,27 +78,38 @@ def search_movies_advanced(filters, page=1, per_page=100):
             if conditions:
                 where_clause = " WHERE " + " AND ".join(conditions)
 
-            # --- PAGINATION LOGIC ---
-            # Query 1: Get the total count of matched movies
             count_sql = "SELECT COUNT(DISTINCT m.Mid) AS total " + joins + where_clause
             cursor.execute(count_sql, tuple(params))
             total_count = cursor.fetchone()['total']
 
-            # Query 2: Get the actual 100 rows for this specific page
             offset = (page - 1) * per_page
-            
             sql = """
                 SELECT 
-                    m.Mid, m.영화명, m.영문명, m.제작연도, m.유형, m.제작상태, m.제작사,
+                    m.Mid, m.영화명, m.영문명, m.제작연도, m.유형, m.제작상태,
                     GROUP_CONCAT(DISTINCT d.감독명 SEPARATOR ', ') AS 감독,
                     GROUP_CONCAT(DISTINCT g.장르명 SEPARATOR ', ') AS 장르,
-                    GROUP_CONCAT(DISTINCT c.제작국가 SEPARATOR ', ') AS 국적
-            """ + joins + where_clause + f" GROUP BY m.Mid ORDER BY m.제작연도 DESC LIMIT {per_page} OFFSET {offset}"
+                    GROUP_CONCAT(DISTINCT c.제작국가 SEPARATOR ', ') AS 국적,
+                    GROUP_CONCAT(DISTINCT co.제작사명 SEPARATOR ', ') AS 제작사
+                """ + joins + where_clause + f" GROUP BY m.Mid ORDER BY m.제작연도 DESC LIMIT {per_page} OFFSET {offset}"
             
             cursor.execute(sql, tuple(params))
             results = cursor.fetchall()
             
             return results, total_count
+    finally:
+        connection.close()
+
+def get_filter_options():
+    connection = get_db_connection()
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT DISTINCT 제작연도 FROM 영화 WHERE 제작연도 IS NOT NULL ORDER BY 제작연도 DESC")
+            years = cursor.fetchall()
+            cursor.execute("SELECT DISTINCT 장르명 FROM 장르 ORDER BY 장르명 ASC")
+            genres = cursor.fetchall()
+            cursor.execute("SELECT DISTINCT 제작국가 FROM 제작국가 ORDER BY 제작국가 ASC")
+            nations = cursor.fetchall()
+            return years, genres, nations
     finally:
         connection.close()
 
@@ -115,7 +122,8 @@ def get_movie_details(mid):
                     m.Mid, m.영화명, m.영문명, m.제작연도, m.유형, m.제작상태,
                     GROUP_CONCAT(DISTINCT d.감독명 SEPARATOR ', ') AS 감독,
                     GROUP_CONCAT(DISTINCT g.장르명 SEPARATOR ', ') AS 장르,
-                    GROUP_CONCAT(DISTINCT c.제작국가 SEPARATOR ', ') AS 국적
+                    GROUP_CONCAT(DISTINCT c.제작국가 SEPARATOR ', ') AS 국적,
+                    GROUP_CONCAT(DISTINCT co.제작사명 SEPARATOR ', ') AS 제작사
                 FROM 영화 m
                 LEFT JOIN 영화_감독 md ON m.Mid = md.Mid
                 LEFT JOIN 감독 d ON md.Did = d.Did
@@ -123,31 +131,12 @@ def get_movie_details(mid):
                 LEFT JOIN 장르 g ON mg.Gid = g.Gid
                 LEFT JOIN 영화_제작국가 mc ON m.Mid = mc.Mid
                 LEFT JOIN 제작국가 c ON mc.Cid = c.Cid
+                LEFT JOIN 영화_제작사 mco ON m.Mid = mco.Mid
+                LEFT JOIN 제작사 co ON mco.Pid = co.Pid
                 WHERE m.Mid = %s
                 GROUP BY m.Mid
             """
             cursor.execute(sql, (mid,))
             return cursor.fetchone()
-    finally:
-        connection.close()
-
-# We also need a quick function to grab the lists for our dropdown menus!
-def get_filter_options():
-    connection = get_db_connection()
-    try:
-        with connection.cursor() as cursor:
-            # 1. Get Years
-            cursor.execute("SELECT DISTINCT 제작연도 FROM 영화 WHERE 제작연도 IS NOT NULL ORDER BY 제작연도 DESC")
-            years = cursor.fetchall()
-            
-            # 2. Get Genres
-            cursor.execute("SELECT DISTINCT 장르명 FROM 장르 ORDER BY 장르명 ASC")
-            genres = cursor.fetchall()
-
-            # 3. Get Nations (NEW)
-            cursor.execute("SELECT DISTINCT 제작국가 FROM 제작국가 ORDER BY 제작국가 ASC")
-            nations = cursor.fetchall()
-            
-            return years, genres, nations
     finally:
         connection.close()
